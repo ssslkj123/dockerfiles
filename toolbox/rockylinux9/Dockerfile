@@ -14,9 +14,11 @@ RUN sed -e 's|^mirrorlist=|#mirrorlist=|g' \
     -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
     -i.bak /etc/yum.repos.d/rocky*.repo
 # 3.安装工具链
+# 默认安装的curl-minimal与需要安装的完整curl冲突，需要卸载curl-minimal
+RUN dnf swap curl-minimal curl -y
 RUN dnf install -y --nodocs --setopt=install_weak_deps=0 \
     # 基础工具
-    curl wget net-tools iproute tcpdump lsof procps-ng vim-enhanced tmux iftop iotop rsync perf  \
+    wget net-tools iproute tcpdump lsof procps-ng vim-enhanced tmux iftop iotop rsync perf  \
     # 网络工具
     bind-utils iputils mtr nmap socat nc telnet bind-utils iperf3 netperf stress  \
     # 调试工具
