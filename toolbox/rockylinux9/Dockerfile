@@ -24,7 +24,7 @@ RUN dnf install -y --nodocs --setopt=install_weak_deps=0 \
     # 自动补全依赖
     bash-completion ca-certificates sudo file \
     #编译工具
-    gcc gcc-c++ make pcre-devel zlib-devel openssl-devel libffi-dev\
+    gcc gcc-c++ make pcre-devel zlib-devel openssl-devel libffi-devel \
     && dnf clean all && rm -rf /var/cache/dnf
 
 # 4.安装golang 1.24
