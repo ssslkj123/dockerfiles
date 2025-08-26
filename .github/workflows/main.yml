@@ -44,7 +44,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./dockerfiles/toolbox/rockylinux9/Dockerfile
+          file: ./toolbox/rockylinux9/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/rockylinux9_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}
@@ -65,7 +65,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./dockerfiles/toolbox/ubuntu2204/Dockerfile
+          file: ./toolbox/ubuntu2204/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ubuntu2204_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}
