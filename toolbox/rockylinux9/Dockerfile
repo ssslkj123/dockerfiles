@@ -26,7 +26,7 @@ RUN dnf install -y --nodocs --setopt=install_weak_deps=0 \
     # 自动补全依赖
     bash-completion ca-certificates sudo file \
     # 安装python 默认应该为3.9.10
-    python3 \
+    python3 pip3 \
     #编译工具
     gcc gcc-c++ make pcre-devel zlib-devel openssl-devel libffi-devel \
     && dnf clean all && rm -rf /var/cache/dnf
