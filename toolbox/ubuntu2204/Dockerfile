@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 3.安装 Golang 1.24.1 (使用国内镜像加速下载)
-RUN wget -O go1.24.0.linux-amd64.tar.gz https://mirrors.aliyun.com/golang/go1.24.1.linux-amd64.tar.gz \
+RUN wget -O go1.24.1.linux-amd64.tar.gz https://mirrors.aliyun.com/golang/go1.24.1.linux-amd64.tar.gz \
     && tar -C /usr/local -xzf go1.24.1.linux-amd64.tar.gz \
     && rm go1.24.1.linux-amd64.tar.gz
 ENV PATH=$PATH:/usr/local/go/bin
