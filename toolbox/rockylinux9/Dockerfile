@@ -66,8 +66,5 @@ RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm
 # USER debugger
 # WORKDIR /home/debugger
 
-# 8.加载补全配置
-RUN echo "source /etc/bash_completion" >> ~/.bashrc
-
 # 入口配置
 CMD ["/bin/bash", "-c", "trap : TERM INT; sleep infinity & wait"]
