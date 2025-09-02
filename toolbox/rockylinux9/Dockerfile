@@ -48,7 +48,7 @@ ENV GOPROXY=https://goproxy.cn,direct
 #    && make altinstall \
 #    && ln -sf /usr/local/bin/python3.13 /usr/bin/python3
 # pip源加速
-RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 
 # 6.安装 kubectl 并配置补全
