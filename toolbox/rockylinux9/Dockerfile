@@ -4,7 +4,7 @@ LABEL maintainer="shuanglulee@foxmail.com" \
       version="1.0.0" \
       description="Kubernetes Debug Toolchain Image (RockyLinux 9 Base)"
 
-# 2.安装epel
+# 2.安装epel包
 RUN dnf install -y --nodocs --setopt=install_weak_deps=0 \
     epel-release \
     && dnf clean all && rm -rf /var/cache/dnf
