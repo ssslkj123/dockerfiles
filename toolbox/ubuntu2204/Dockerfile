@@ -13,8 +13,8 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && 
 
 # 3.安装核心工具链和系统Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # ubuntu 包管理
-    apt-cache aptitude apt-file \
+    # ubuntu 包管理,apt-file搜索文件所属包，aptitude 查找包，apt-cache 默认属于apt包（已安装），查找包与aptitude类似
+    aptitude apt-file \
     # 基础运维工具
     curl wget net-tools iproute2 tcpdump lsof procps vim tmux rsync linux-tools-generic  \
     # 网络诊断工具
