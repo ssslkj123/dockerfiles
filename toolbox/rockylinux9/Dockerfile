@@ -25,6 +25,8 @@ RUN dnf install -y --nodocs --setopt=install_weak_deps=0 \
     strace ltrace gdb psmisc htop jq git \
     # 自动补全依赖
     bash-completion ca-certificates sudo file \
+    # 安装python 默认应该为3.9.10
+    python3 \
     #编译工具
     gcc gcc-c++ make pcre-devel zlib-devel openssl-devel libffi-devel \
     && dnf clean all && rm -rf /var/cache/dnf
@@ -38,13 +40,13 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV GOPROXY=https://goproxy.cn,direct
 
 # 5.安装python 3.13
-RUN wget https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tgz \
-    && tar -xzf Python-3.13.2.tgz \
-    && cd Python-3.13.2 \
-    && ./configure --enable-optimizations \
-    && make -j $(nproc) \
-    && make altinstall \
-    && ln -sf /usr/local/bin/python3.13 /usr/bin/python3
+#RUN wget https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tgz \
+#    && tar -xzf Python-3.13.2.tgz \
+#    && cd Python-3.13.2 \
+#    && ./configure --enable-optimizations \
+#    && make -j $(nproc) \
+#    && make altinstall \
+#    && ln -sf /usr/local/bin/python3.13 /usr/bin/python3
 # pip源加速
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
