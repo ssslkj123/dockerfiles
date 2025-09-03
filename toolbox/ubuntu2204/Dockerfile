@@ -56,7 +56,7 @@ RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm
 # WORKDIR /home/debugger
 
 # 7.加载补全配置
-RUN echo "source /etc/bash_completion" >> ~/.bashrc
+# RUN echo "source /etc/bash_completion" >> ~/.bashrc
 RUN echo "alias k=kubectl" >> ~/.bashrc
 RUN echo "complete -F __start_kubectl k" >> ~/.bashrc
 
