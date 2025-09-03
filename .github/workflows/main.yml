@@ -36,26 +36,46 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // GitHub Script 使用 JavaScript 语法，需要使用 // 进行注释
-            // 调用GitHub API获取当前工作流的成功运行记录
-            const { data } = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: context.workflow,
-              status: 'success',
-              per_page: 1
-            });
-            
-            // 如果有成功记录，返回最近一次成功构建的commit SHA
-            if (data.workflow_runs.length > 0) {
-              console.log(`Last successful run: ${data.workflow_runs[0].id}`);
-              return data.workflow_runs[0].head_sha;
+            try {
+              // 使用工作流文件路径作为标识（请替换为你的实际工作流文件路径）
+              const workflowPath = '.github/workflows/build-and-push.yml';
+              
+              // 先获取工作流ID
+              const { data: workflows } = await github.rest.actions.listRepoWorkflows({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              
+              // 找到当前工作流的ID
+              const workflow = workflows.workflows.find(wf => wf.path === workflowPath);
+              if (!workflow) {
+                console.log(`Workflow not found at path: ${workflowPath}`);
+                return 'none';
+              }
+              
+              // 获取该工作流的成功运行记录
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflow.id, // 使用工作流ID更可靠
+                status: 'success',
+                per_page: 1
+              });
+              
+              if (data.workflow_runs.length > 0) {
+                console.log(`Last successful run: ${data.workflow_runs[0].id}`);
+                return data.workflow_runs[0].head_sha;
+              }
+              
+              console.log('No successful runs found');
+              return 'none';
+            } catch (error) {
+              console.log(`Error fetching workflow runs: ${error.message}`);
+              // 如果发生错误（如首次运行无历史记录），默认返回'none'
+              return 'none';
             }
-            // 如果没有成功记录，返回'none'
-            console.log('No successful runs found');
-            return 'none';
           result-encoding: string
-
+    
       # 步骤3：检查RockyLinux9相关文件是否有变更
       - name: Check if RockyLinux9 Dockerfile changed
         id: check_rocky
