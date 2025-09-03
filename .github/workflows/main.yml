@@ -1,67 +1,169 @@
+# 工作流名称：构建并推送Docker镜像
 name: Build and Push Docker Images
 
-# 触发条件：可以根据需要修改，这里设置为推送到main分支时触发
+# 触发条件：
+# 1. 当代码推送到main分支时自动触发
+# 2. 允许手动触发工作流（通过GitHub界面）
 on:
   push:
     branches: [ main ]
-  # 也可以添加手动触发选项
   workflow_dispatch:
 
+# 定义作业
 jobs:
-  build-and-push:
+  # 第一个作业：检查代码变更，确定是否需要构建镜像
+  check-changes:
+    # 运行环境：最新版Ubuntu
     runs-on: ubuntu-latest
+    # 输出结果：供其他作业使用的变量
+    outputs:
+      # 标记RockyLinux9相关文件是否有变更
+      rockylinux9_changed: ${{ steps.check_rocky.outputs.changed }}
+      # 标记Ubuntu2204相关文件是否有变更
+      ubuntu2204_changed: ${{ steps.check_ubuntu.outputs.changed }}
+    
     steps:
+      # 步骤1：检出代码仓库
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 确保能获取完整的commit历史
+          # 拉取完整历史，以便比较提交差异
+          fetch-depth: 0
 
+      # 步骤2：获取上一次成功构建的commit SHA
+      - name: Get last successful build commit
+        id: last_successful
+        uses: actions/github-script@v7
+        with:
+          script: |
+            # 调用GitHub API获取当前工作流的成功运行记录
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: context.workflow,
+              status: 'success',
+              per_page: 1
+            });
+            
+            # 如果有成功记录，返回最近一次成功构建的commit SHA
+            if (data.workflow_runs.length > 0) {
+              console.log(`Last successful run: ${data.workflow_runs[0].id}`);
+              return data.workflow_runs[0].head_sha;
+            }
+            # 如果没有成功记录，返回'none'
+            console.log('No successful runs found');
+            return 'none';
+          result-encoding: string
+
+      # 步骤3：检查RockyLinux9相关文件是否有变更
+      - name: Check if RockyLinux9 Dockerfile changed
+        id: check_rocky
+        run: |
+          # 如果没有上一次成功构建记录，默认需要构建
+          if [ "${{ steps.last_successful.outputs.result }}" = "none" ]; then
+            echo "No previous successful build, building"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            # 比较上一次成功构建与当前提交之间的差异
+            # 检查toolbox/rockylinux9/目录下的文件是否有变更
+            if git diff --name-only ${{ steps.last_successful.outputs.result }} HEAD | grep -q -E '^toolbox/rockylinux9/'; then
+              echo "RockyLinux9 Dockerfile or related files changed"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No changes to RockyLinux9 Dockerfile or related files"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      # 步骤4：检查Ubuntu2204相关文件是否有变更（逻辑与上一步类似）
+      - name: Check if Ubuntu2204 Dockerfile changed
+        id: check_ubuntu
+        run: |
+          if [ "${{ steps.last_successful.outputs.result }}" = "none" ]; then
+            echo "No previous successful build, building"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            if git diff --name-only ${{ steps.last_successful.outputs.result }} HEAD | grep -q -E '^toolbox/ubuntu2204/'; then
+              echo "Ubuntu2204 Dockerfile or related files changed"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No changes to Ubuntu2204 Dockerfile or related files"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  # 第二个作业：构建并推送Docker镜像
+  build-and-push:
+    # 依赖于check-changes作业的结果
+    needs: check-changes
+    runs-on: ubuntu-latest
+    
+    # 全局开启调试环境变量（作用于所有步骤）
+    env:
+      DEBUG: "true"  # 开启Docker相关工具的调试输出
+      DOCKER_DEBUG: "true"  # 开启Docker客户端调试
+
+    steps:
+      # 步骤1：检出代码仓库
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 步骤2：设置Docker Buildx（增强版Docker构建工具）
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          debug: true  # 启用调试输出
+          debug: true  # 启用调试模式
 
+      # 步骤3：登录到DockerHub
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}  # 从GitHub Secrets获取用户名
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}  # 从GitHub Secrets获取访问令牌
         env:
-          DOCKER_DEBUG: true  # 启用Docker调试输出
+          DOCKER_DEBUG: true  # 启用Docker调试
 
+      # 步骤4：提取元数据用于镜像标签
       - name: Extract metadata for tagging
         id: meta
         run: |
-          # 获取当前日期（格式：YYYYMMDD）
+          # 生成日期标签（如20231015）
           echo "DATE_TAG=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-          # 获取7位commit ID
+          # 生成短commit SHA（7位）
           echo "COMMIT_SHORT=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
-          # 显示获取的信息用于调试
           echo "Date tag: $(date +'%Y%m%d')"
           echo "Commit short: $(git rev-parse --short=7 HEAD)"
 
+      # 步骤5：构建并推送RockyLinux9镜像（仅当相关文件有变更时）
       - name: Build and push RockyLinux9 Toolbox image
+        if: needs.check-changes.outputs.rockylinux9_changed == 'true'
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./toolbox/rockylinux9/Dockerfile
-          push: true
+          context: .  # 构建上下文为当前目录
+          file: ./toolbox/rockylinux9/Dockerfile  # 指定Dockerfile路径
+          push: true  # 推送镜像到仓库
+          # 镜像标签：包含日期、commit和latest标签
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/rockylinux9_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}
             ${{ secrets.DOCKER_USERNAME }}/rockylinux9_toolbox:latest
-          # 启用详细日志
+          # 构建参数
           build-args: |
             DEBUG=true
+          # OCI镜像标签
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.created=${{ steps.meta.outputs.DATE_TAG }}
+          # 使用GitHub Actions缓存加速构建
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # 显示构建过程详细信息
-          debug: true
 
+
+      # 步骤6：构建并推送Ubuntu2204镜像（仅当相关文件有变更时）
       - name: Build and push Ubuntu2204 Toolbox image
+        if: needs.check-changes.outputs.ubuntu2204_changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -70,7 +172,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ubuntu2204_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}
             ${{ secrets.DOCKER_USERNAME }}/ubuntu2204_toolbox:latest
-          # 启用详细日志
           build-args: |
             DEBUG=true
           labels: |
@@ -79,13 +180,18 @@ jobs:
             org.opencontainers.image.created=${{ steps.meta.outputs.DATE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # 显示构建过程详细信息
-          debug: true
 
+      # 步骤7：验证推送的镜像
       - name: Verify pushed images
-        if: success()
+        if: success()  # 仅当之前步骤成功时执行
         run: |
           echo "Successfully pushed the following images:"
-          echo "${{ secrets.DOCKER_USERNAME }}/rockylinux9_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}"
-          echo "${{ secrets.DOCKER_USERNAME }}/ubuntu2204_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}"
-          echo "Also tagged as 'latest'"
+          # 显示推送的RockyLinux9镜像（如果有）
+          if [ "${{ needs.check-changes.outputs.rockylinux9_changed }}" = "true" ]; then
+            echo "${{ secrets.DOCKER_USERNAME }}/rockylinux9_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}"
+          fi
+          # 显示推送的Ubuntu2204镜像（如果有）
+          if [ "${{ needs.check-changes.outputs.ubuntu2204_changed }}" = "true" ]; then
+            echo "${{ secrets.DOCKER_USERNAME }}/ubuntu2204_toolbox:${{ steps.meta.outputs.DATE_TAG }}-${{ steps.meta.outputs.COMMIT_SHORT }}"
+          fi
+          echo "Images tagged as 'latest' where applicable"
